@@ -12,7 +12,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  Clock3,
   Copy,
   ExternalLink,
   FileText,
@@ -31,7 +30,6 @@ import {
   Search,
   Settings2,
   Shield,
-  Sparkles,
   Zap,
   type LucideIcon,
 } from "lucide-react";
