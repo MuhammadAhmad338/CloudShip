@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "DM Sans Variable", "Avenir Next", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+  --animate-enter: enter 350ms ease-out both;
+}
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@layer base {
+  * { @apply box-border; }
+  html { @apply min-h-full bg-[#f6f8fb]; }
+  body { @apply m-0 min-h-screen font-sans text-slate-900; font-feature-settings: "ss01" on; }
+  button, input, select, textarea { @apply font-sans; }
+  ::selection { @apply bg-sky-100 text-sky-950; }
+}
+
+@utility mono { font-family: var(--font-mono); }
+@utility sidebar-scroll { scrollbar-width: thin; scrollbar-color: #39485a transparent; }
+@utility soft-grid {
+  background-image: linear-gradient(rgba(100,116,139,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,.055) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
