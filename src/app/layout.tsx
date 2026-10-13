@@ -5,8 +5,8 @@ import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import { AppShell } from "@/components/app-shell";
 import "@fontsource-variable/google-sans-flex/wght.css";
-import { AuthSessionProvider } from "@/components/auth-session-provider";
 import { getBackendAuthSession } from "@/lib/server/auth-session";
+import { AuthSessionProvider } from "@/components/auth-session-provider";
 
 export const metadata: Metadata = {
     title: "CloudShip | GitHub Deployments",
