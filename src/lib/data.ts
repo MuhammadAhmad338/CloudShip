@@ -1,4 +1,5 @@
 export type DeploymentStatus = "Live" | "Building" | "Queued" | "Failed";
+export type ProjectStatus = DeploymentStatus | "Ready";
 
 export type Project = {
   id: string;
@@ -6,10 +7,14 @@ export type Project = {
   repository: string;
   framework: string;
   environment: string;
-  status: DeploymentStatus;
+  status: ProjectStatus;
   updated: string;
   initials: string;
   color: string;
+  branch?: string;
+  buildCommand?: string;
+  startCommand?: string;
+  rootDirectory?: string;
 };
 
 export type Deployment = {
@@ -19,11 +24,12 @@ export type Deployment = {
   branch: string;
   commit: string;
   message: string;
-  status: DeploymentStatus;
+  status: DeploymentStatus | "Testing" | "Deploying";
   environment: string;
   created: string;
   duration: string;
   author: string;
+  logs?: string;
 };
 
 export const projects: Project[] = [

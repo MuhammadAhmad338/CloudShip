@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: "DM Sans Variable", "Avenir Next", sans-serif;
+  --font-sans: "Google Sans Flex Variable", Roboto, ui-sans-serif, sans-serif;
   --font-mono: "IBM Plex Mono", monospace;
   --animate-enter: enter 350ms ease-out both;
 }
