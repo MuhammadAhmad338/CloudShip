@@ -11,6 +11,9 @@ dist/
 .env.local
 .env.*.local
 
+# Backend is maintained outside this repository
+/backend/
+
 # Terraform
 .terraform/
 *.tfstate
