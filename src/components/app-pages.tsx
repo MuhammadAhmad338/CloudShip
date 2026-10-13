@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
-import { useEffect, useState, type FormEvent } from "react";
-import { useSession } from "next-auth/react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useSession } from "@/components/auth-session-provider";
+import { startGitHubSignIn } from "@/lib/auth-client";
+import { useAppDispatch } from "@/lib/store/hooks";
 import {
   Activity,
   ArrowLeft,
@@ -618,35 +619,63 @@ function CreateProjectPage() {
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
   const [repositoriesLoading, setRepositoriesLoading] = useState(true);
   const [repositoryError, setRepositoryError] = useState<string | null>(null);
+  const [repositoryQuery, setRepositoryQuery] = useState("");
+  const [repositoryVisibility, setRepositoryVisibility] = useState<"all" | "public" | "private">("all");
+  const [showConfiguration, setShowConfiguration] = useState(false);
   const [framework, setFramework] = useState("Next.js");
   const [formError, setFormError] = useState<string | null>(null);
 
+  const loadRepositories = useCallback(async (signal?: AbortSignal) => {
+    setRepositoriesLoading(true);
+    setRepositoryError(null);
+    try {
+      const response = await fetch("/api/github/repositories", {
+        signal,
+        cache: "no-store",
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok) {
+        const errorMessage =
+          typeof payload === "object" &&
+          payload !== null &&
+          "error" in payload
+            ? String(payload.error)
+            : "Could not load GitHub repositories.";
+        throw new Error(errorMessage);
+      }
+      setRepositories(payload as GitHubRepository[]);
+    } catch (cause) {
+      if (signal?.aborted) return;
+      setRepositoryError(
+        cause instanceof Error ? cause.message : "Could not load GitHub repositories.",
+      );
+    } finally {
+      if (!signal?.aborted) setRepositoriesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    setRepositoriesLoading(true);
-    fetch("/api/github/repositories", { signal: controller.signal, cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error ?? "Could not load GitHub repositories.");
-        return payload as GitHubRepository[];
-      })
-      .then((items) => {
-        setRepositories(items);
-        if (items[0]) {
-          setRepo(items[0].fullName);
-          setBranch(items[0].defaultBranch);
-        }
-        setRepositoryError(null);
-      })
-      .catch((cause: unknown) => {
-        if (controller.signal.aborted) return;
-        setRepositoryError(cause instanceof Error ? cause.message : "Could not load GitHub repositories.");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setRepositoriesLoading(false);
-      });
+    void loadRepositories(controller.signal);
     return () => controller.abort();
-  }, [session?.user?.id]);
+  }, [loadRepositories, session?.user?.id]);
+
+  const visibleRepositories = repositories.filter((repository) => {
+    const matchesQuery = repository.fullName
+      .toLowerCase()
+      .includes(repositoryQuery.trim().toLowerCase());
+    const matchesVisibility =
+      repositoryVisibility === "all" ||
+      (repositoryVisibility === "private" && repository.private) ||
+      (repositoryVisibility === "public" && !repository.private);
+    return matchesQuery && matchesVisibility;
+  });
+
+  function chooseRepository(repository: GitHubRepository) {
+    setRepo(repository.fullName);
+    setBranch(repository.defaultBranch);
+    setShowConfiguration(true);
+  }
 
   async function submitProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -672,6 +701,179 @@ function CreateProjectPage() {
       setSubmitting(false);
     }
   }
+
+  if (!showConfiguration) {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              New project
+            </p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
+              Import a Git Repository
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Choose a repository to connect it to CloudShip. We’ll use it to set up your project.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5">
+            <span className="grid size-8 place-items-center rounded-md bg-slate-950 text-white">
+              <Github size={16} />
+            </span>
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                Connected to GitHub
+              </p>
+              <p className="mt-0.5 text-xs font-semibold text-slate-900">
+                {session?.user?.login ?? session?.user?.name ?? "GitHub account"}
+              </p>
+            </div>
+            <CheckCircle2 size={16} className="ml-1 text-emerald-600" />
+          </div>
+        </div>
+
+        <Panel className="overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-sm">
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                aria-label="Search repositories"
+                value={repositoryQuery}
+                onChange={(event) => setRepositoryQuery(event.target.value)}
+                placeholder="Search repositories..."
+                className={`${fieldClass} pl-9`}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="repository-visibility" className="text-xs text-slate-500">
+                Show
+              </label>
+              <select
+                id="repository-visibility"
+                value={repositoryVisibility}
+                onChange={(event) =>
+                  setRepositoryVisibility(event.target.value as typeof repositoryVisibility)
+                }
+                className={`${fieldClass} h-9 w-auto py-1.5`}
+              >
+                <option value="all">All repositories</option>
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => void loadRepositories()}
+                disabled={repositoriesLoading}
+                aria-label="Refresh repositories"
+                className="grid size-9 place-items-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={repositoriesLoading ? "animate-spin" : ""} />
+              </button>
+            </div>
+          </div>
+
+          {repositoryError ? (
+            <div className="flex flex-col items-center px-6 py-16 text-center">
+              <span className="grid size-11 place-items-center rounded-full bg-rose-50 text-rose-700">
+                <Github size={19} />
+              </span>
+              <h2 className="mt-4 text-sm font-semibold text-slate-900">
+                Couldn’t load your repositories
+              </h2>
+              <p role="alert" className="mt-2 max-w-md text-xs leading-5 text-slate-600">
+                {repositoryError}
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void loadRepositories()}
+                className="mt-5"
+              >
+                <RefreshCw size={14} />
+                Try again
+              </Button>
+            </div>
+          ) : repositoriesLoading ? (
+            <div className="flex items-center justify-center gap-2 px-6 py-16 text-sm text-slate-500">
+              <LoaderCircle size={16} className="animate-spin" />
+              Loading your GitHub repositories...
+            </div>
+          ) : visibleRepositories.length === 0 ? (
+            <div className="px-6 py-16 text-center">
+              <h2 className="text-sm font-semibold text-slate-900">
+                {repositories.length ? "No matching repositories" : "No repositories found"}
+              </h2>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                {repositories.length
+                  ? "Try another search or change the visibility filter."
+                  : "This GitHub account has no repositories available to import."}
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {visibleRepositories.map((repository) => (
+                <li
+                  key={repository.id}
+                  className="flex min-w-0 items-center gap-3 px-4 py-3.5 transition-colors hover:bg-slate-50/80 sm:px-5"
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-md border border-slate-200 bg-white text-slate-700">
+                    <Github size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <a
+                      href={repository.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate text-sm font-semibold text-slate-900 hover:text-sky-700"
+                    >
+                      {repository.fullName}
+                    </a>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                      <span className="inline-flex items-center gap-1">
+                        <GitBranch size={11} />
+                        {repository.defaultBranch || "No default branch"}
+                      </span>
+                      <span aria-hidden="true" className="text-slate-300">·</span>
+                      <span className="inline-flex items-center gap-1">
+                        {repository.private ? <LockKeyhole size={11} /> : <Globe2 size={11} />}
+                        {repository.private ? "Private" : "Public"}
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => chooseRepository(repository)}
+                    className="shrink-0"
+                  >
+                    Import
+                    <ArrowRight size={14} />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/70 px-4 py-3 text-[11px] text-slate-500 sm:px-5">
+            <span>{repositories.length} repositories available</span>
+            <a
+              href="https://github.com/settings/installations"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-sky-700 hover:text-sky-900"
+            >
+              Configure GitHub access
+              <ArrowUpRight size={12} className="ml-1 inline" />
+            </a>
+          </div>
+        </Panel>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="mb-5">
@@ -1962,17 +2164,27 @@ function SettingsPage() {
 }
 
 function LoginPage() {
+  const dispatch = useAppDispatch();
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const errorCode = new URLSearchParams(window.location.search).get("error");
     if (errorCode) {
-      setAuthError(
-        errorCode === "AccessDenied"
-          ? "GitHub authorization was cancelled."
-          : "GitHub sign-in failed. Please try again.",
-      );
+    const messages: Record<string, string> = {
+      AccessDenied: "GitHub authorization was cancelled.",
+      DatabaseUnavailable:
+        "GitHub connected, but CloudShip could not save your session. Check the backend database and run its migrations.",
+      InvalidOAuthState:
+        "The sign-in request expired or its security check failed. Please try again.",
+      OAuthConfiguration:
+        "GitHub sign-in is not configured on the backend.",
+      ProfileLookup:
+        "GitHub authorized the app, but CloudShip could not load your profile. Please try again.",
+      TokenExchange:
+        "GitHub could not complete the authorization. Please start sign-in again.",
+    };
+    setAuthError(messages[errorCode] ?? "GitHub sign-in failed. Please try again.");
     }
   }, []);
 
@@ -1992,7 +2204,7 @@ function LoginPage() {
           <h2 className="mt-2 text-2xl font-bold tracking-[-0.035em] text-slate-950">Sign in to your workspace</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">Continue with GitHub to access your projects and repositories.</p>
           {authError && <p role="alert" className="mt-5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs leading-relaxed text-rose-800">{authError}</p>}
-          <button onClick={() => void signIn("github", { callbackUrl: "/" })} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800"><Github size={17} />Continue with GitHub</button>
+          <button onClick={() => startGitHubSignIn(dispatch)} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800"><Github size={17} />Continue with GitHub</button>
         </div>
         <p className="mx-auto w-full max-w-[420px] pb-4 text-[10px] leading-relaxed text-slate-400">By continuing, you authorize CloudShip to access your GitHub account according to the requested OAuth permissions.</p>
       </section>

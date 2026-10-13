@@ -1,7 +1,7 @@
-"use client";
-
-import { signIn } from "next-auth/react";
+"use client"
 import Link from "next/link";
+import { startGitHubSignIn } from "@/lib/auth-client";
+import { useAppDispatch } from "@/lib/store/hooks";
 import {
   ArrowDown,
   ArrowRight,
@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 
 export function LandingPage() {
+  const dispatch = useAppDispatch();
+
   return (
     <main className="overflow-hidden bg-white text-[#242424]">
       <section className="relative isolate flex min-h-[760px] flex-col overflow-hidden bg-[#faf9f8] text-[#242424] lg:min-h-[min(900px,100svh)]">
@@ -46,7 +48,7 @@ export function LandingPage() {
           </nav>
 
           <button
-            onClick={() => void signIn("github", { callbackUrl: "/" })}
+            onClick={() => startGitHubSignIn(dispatch)}
             className="inline-flex h-9 items-center gap-2 rounded-[4px] border border-[#8a8886] bg-white px-3.5 text-xs font-semibold text-[#242424] transition hover:border-[#605e5c] hover:bg-[#f3f2f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0078d4]"
           >
             <Github size={15} />
@@ -72,7 +74,7 @@ export function LandingPage() {
 
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <button
-                onClick={() => void signIn("github", { callbackUrl: "/" })}
+                onClick={() => startGitHubSignIn(dispatch)}
                 className="group inline-flex h-11 items-center gap-2.5 rounded-[4px] bg-[#0078d4] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#106ebe] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0078d4] focus-visible:ring-offset-2"
               >
                 <Github size={17} />
@@ -264,7 +266,7 @@ export function LandingPage() {
               Workspace
             </a>
             <button
-              onClick={() => void signIn("github", { callbackUrl: "/" })}
+              onClick={() => startGitHubSignIn(dispatch)}
               className="inline-flex h-9 items-center gap-2 rounded-[4px] bg-[#0078d4] px-3.5 text-xs font-semibold text-white transition-colors hover:bg-[#106ebe] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0078d4] focus-visible:ring-offset-2"
             >
               <Github size={14} />

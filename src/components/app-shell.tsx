@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "@/components/auth-session-provider";
+import { signOut } from "@/lib/store/auth-slice";
+import { useAppDispatch } from "@/lib/store/hooks";
 import {
     Activity,
     Bell,
@@ -66,6 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function AuthenticatedShell({ children }: { children: ReactNode }) {
+    const dispatch = useAppDispatch();
     const pathname = usePathname();
     const { loading, error } = useWorkspaceData();
     const { data: session } = useSession();
@@ -224,7 +227,12 @@ function AuthenticatedShell({ children }: { children: ReactNode }) {
                 </nav>
 
                 <div className="border-t border-white/[0.08] p-3">
-                    <button onClick={() => void signOut({ callbackUrl: "/" })} aria-label="Sign out of GitHub" title="Sign out" className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/[0.05]">
+                    <button onClick={() => void dispatch(signOut()).unwrap().then(() => {
+                        window.location.assign("/");
+                    }).catch((error: unknown) => {
+                        console.error("GitHub sign-out failed", error);
+                        window.location.assign("/login?error=SignOut");
+                    })} aria-label="Sign out of GitHub" title="Sign out" className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/[0.05]">
                         <span className="grid size-8 place-items-center rounded-full bg-[#d8e9f7] text-[11px] font-bold text-[#214e70]">
                             {(session?.user?.name ?? session?.user?.email ?? "GH").split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}
                         </span>

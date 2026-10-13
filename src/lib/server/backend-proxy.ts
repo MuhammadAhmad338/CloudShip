@@ -1,16 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
 
 export async function proxyBackendRequest(request: NextRequest, path: string[]) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in with GitHub to continue." }, { status: 401 });
-  }
-
   const backendUrl = process.env.CLOUDSHIP_API_URL?.replace(/\/$/, "");
-  const apiKey = process.env.CLOUDSHIP_API_KEY;
-  if (!backendUrl || !apiKey) {
+  if (!backendUrl) {
     return NextResponse.json(
       { error: "Backend connection is not configured on the frontend server." },
       { status: 503 },
@@ -25,7 +17,9 @@ export async function proxyBackendRequest(request: NextRequest, path: string[]) 
     const upstream = await fetch(targetUrl, {
       method: request.method,
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        ...(request.headers.get("cookie")
+          ? { cookie: request.headers.get("cookie")! }
+          : {}),
         ...(request.headers.get("content-type")
           ? { "content-type": request.headers.get("content-type")! }
           : {}),
@@ -41,9 +35,13 @@ export async function proxyBackendRequest(request: NextRequest, path: string[]) 
       headers: {
         "content-type": upstream.headers.get("content-type") ?? "application/json",
         "cache-control": "no-store",
+        ...(upstream.headers.get("set-cookie")
+          ? { "set-cookie": upstream.headers.get("set-cookie")! }
+          : {}),
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("Could not reach the CloudShip API", error);
     return NextResponse.json(
       { error: "Could not reach the CloudShip API." },
       { status: 502 },

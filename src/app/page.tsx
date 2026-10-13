@@ -1,10 +1,8 @@
-import { getServerSession } from "next-auth";
 import { AppPage } from "@/components/app-pages";
 import { LandingPage } from "@/components/landing-page";
-import { authOptions, isGitHubOAuthConfigured } from "@/lib/auth-options";
+import { getBackendAuthSession } from "@/lib/server/auth-session";
 
 export default async function Home() {
-    const oauthConfigured = isGitHubOAuthConfigured();
-    const session = oauthConfigured ? await getServerSession(authOptions) : null;
+    const session = await getBackendAuthSession();
     return session ? <AppPage route="" /> : <LandingPage />;
 }

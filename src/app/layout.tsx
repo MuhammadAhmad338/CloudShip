@@ -1,12 +1,12 @@
-import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-mono/500.css";
-import "@fontsource-variable/google-sans-flex/wght.css";
+
 import "./globals.css";
 import type { Metadata } from "next";
-import { getServerSession } from "next-auth";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
 import { AppShell } from "@/components/app-shell";
+import "@fontsource-variable/google-sans-flex/wght.css";
 import { AuthSessionProvider } from "@/components/auth-session-provider";
-import { authOptions, isGitHubOAuthConfigured } from "@/lib/auth-options";
+import { getBackendAuthSession } from "@/lib/server/auth-session";
 
 export const metadata: Metadata = {
     title: "CloudShip | GitHub Deployments",
@@ -14,9 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-    const session = isGitHubOAuthConfigured()
-        ? await getServerSession(authOptions)
-        : null;
+    const session = await getBackendAuthSession();
     return (
         <html lang="en">
             <body><AuthSessionProvider session={session}><AppShell>{children}</AppShell></AuthSessionProvider></body>
